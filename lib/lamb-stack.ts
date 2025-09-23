@@ -1,19 +1,24 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
-import * as sns from 'aws-cdk-lib/aws-sns';
-import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
-import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { Stack, StackProps } from 'aws-cdk-lib';
+import { Code, Function, Runtime } from "aws-cdk-lib/aws-lambda";
 import { Construct } from 'constructs';
+import { RestApi, LambdaIntegration } from "aws-cdk-lib/aws-apigateway";
 
 export class LambStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    const queue = new sqs.Queue(this, 'LambQueue', {
-      visibilityTimeout: Duration.seconds(300)
+    // defines an AWS Lambda resource
+    const hello = new Function(this, "HelloHandler", {
+      runtime: Runtime.NODEJS_22_X, // execution environment
+      code: Code.fromAsset("lambda"), // code loaded from "lambda" directory
+      handler: "hello.handler", // file is "hello", function is "handler"
     });
 
-    const topic = new sns.Topic(this, 'LambTopic');
-
-    topic.addSubscription(new subs.SqsSubscription(queue));
+    // defines an API Gateway REST API resource backed by our "hello" function.
+    const api = new RestApi(this, "Endpoint", { restApiName: "Phone API" });
+    const phone = api.root.addResource("phone");
+    const phoneNumber = phone.addResource("{phone}"); // <-- {phone} is the path param name
+    phoneNumber.addMethod("GET", new LambdaIntegration(hello));
+    
   }
 }
