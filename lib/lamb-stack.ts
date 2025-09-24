@@ -1,24 +1,27 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { Code, Function, Runtime } from "aws-cdk-lib/aws-lambda";
+import { Stack, StackProps, Duration } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { RestApi, LambdaIntegration } from "aws-cdk-lib/aws-apigateway";
+import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import * as path from 'path';
+import { CfnOutput } from "aws-cdk-lib";
+import { FunctionUrlAuthType } from "aws-cdk-lib/aws-lambda";
+
 
 export class LambStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // defines an AWS Lambda resource
-    const hello = new Function(this, "HelloHandler", {
-      runtime: Runtime.NODEJS_22_X, // execution environment
-      code: Code.fromAsset("lambda"), // code loaded from "lambda" directory
-      handler: "hello.handler", // file is "hello", function is "handler"
+    const seleniumLambda = new DockerImageFunction(this, "SeleniumContainerHandler", {
+      code: DockerImageCode.fromImageAsset(path.join(__dirname, '..')),
+      memorySize: 2048,
+      timeout: Duration.minutes(3),
     });
 
-    // defines an API Gateway REST API resource backed by our "hello" function.
-    const api = new RestApi(this, "Endpoint", { restApiName: "Phone API" });
-    const phone = api.root.addResource("phone");
-    const phoneNumber = phone.addResource("{phone}"); // <-- {phone} is the path param name
-    phoneNumber.addMethod("GET", new LambdaIntegration(hello));
-    
+    const funcUrl = seleniumLambda.addFunctionUrl({
+      authType: FunctionUrlAuthType.NONE,  
+    });
+
+    // Print it after deploy
+    new CfnOutput(this, "FunctionUrl", { value: funcUrl.url });
   }
 }
